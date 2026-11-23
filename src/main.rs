@@ -4,12 +4,12 @@
  * Step 4: Pass 2 calculates offsets then converts to binary
  */
 
-#![feature(file_buffered)]
+mod util;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -20,27 +20,28 @@ struct Cli {
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-
-    let input_file = File::open(&args.input_path)
+    let mut reader = util::open_buffered(&args.input_path)
         .with_context(|| format!("could not read file `{}`", args.input_path.display()))?;
-    let output_file = File::create_buffered(&args.output_path)
+    let mut output_file = util::create_buffered(&args.output_path)
         .with_context(|| format!("could not create file `{}`", args.output_path.display()))?;
 
-    let mut reader = BufReader::new(input_file);
     let mut line = String::new();
 
     let origin: u16;
-    let offset_from_origin: u16;
+    let mut offset_from_origin: u16;
 
     loop {
         line.clear();
         if reader.read_line(&mut line)? == 0 {
-            // return some sort of error with context about how there is no origin
+            bail!("No Origin Found. Consider adding .ORIG somewhere in your file.");
         } else {
             let mut trimmed_line = line.trim();
-            if &trimmed_line[..5] == ".ORIG" {
+            if trimmed_line.is_empty() || trimmed_line == "\n" || &trimmed_line[0..1] == ";" {
+                continue;
+            }
+            if trimmed_line.len() >= 5 && &trimmed_line[..5] == ".ORIG" {
                 trimmed_line = &trimmed_line[5..];
-                let numeric_literal_base = (&trimmed_line)
+                let numeric_literal_base = trimmed_line
                     .char_indices()
                     .find(|&(_, c)| !c.is_whitespace());
                 trimmed_line = &trimmed_line[numeric_literal_base.unwrap().0 + 1..];
@@ -65,16 +66,34 @@ fn main() -> Result<()> {
                         break;
                     }
                     _ => {
-                        // custom error because .orig was formed incorrectly. this will be some sort
-                        // of assembler error that I use throughout
+                        bail!("No Origin Found. Consider adding .ORIG somewhere in your file.");
                     }
                 }
             }
         }
     }
-
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 {
+            break; // EOF has been reached
+        } else {
+            let trimmed_line = line.trim();
+            if trimmed_line.is_empty() || trimmed_line == "\n" || &trimmed_line[0..1] == ";" {
+                continue;
+            }
+            let instruction: Vec<&str> = trimmed_line
+                .split(';')
+                .next()
+                .unwrap()
+                .split_whitespace()
+                .collect();
+            print!("{:?}", instruction);
+        }
+    }
     while reader.read_line(&mut line)? != 0 {
         line.clear();
     }
+
+    output_file.flush()?;
     Ok(())
 }
