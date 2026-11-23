@@ -103,6 +103,22 @@ fn main() -> Result<()> {
                     "ADD" => {
                         //handle each opcode individually
                     }
+                    "AND" => {}
+                    "NOT" => {}
+                    "BR" => {}
+                    "JMP" => {}
+                    "JSR" => {}
+                    "JSRR" => {}
+                    "RET" => {}
+                    "LD" => {}
+                    "LDI" => {}
+                    "LDR" => {}
+                    "LEA" => {}
+                    "ST" => {}
+                    "STI" => {}
+                    "STR" => {}
+                    "TRAP" => {}
+                    "RTI" => {}
                     _ => {
                         //handles symbolic name
                     }
