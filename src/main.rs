@@ -6,6 +6,8 @@
 
 mod util;
 
+use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 
@@ -28,7 +30,13 @@ fn main() -> Result<()> {
     let mut line = String::new();
 
     let origin: u16;
-    let mut offset_from_origin: u16;
+    let mut offset_from_origin: u16 = 0;
+
+    let len = std::fs::metadata(&args.input_path)?.len() as usize;
+    let capacity = len / 20; // rough guess at bytes per line
+
+    let mut symbol_table: FxHashMap<String, u16> =
+        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
 
     loop {
         line.clear();
@@ -87,7 +95,24 @@ fn main() -> Result<()> {
                 .unwrap()
                 .split_whitespace()
                 .collect();
-            print!("{:?}", instruction);
+            if instruction.len() == 1 {
+                symbol_table.insert(instruction[0].to_string(), origin + offset_from_origin + 1);
+            } else {
+                // match all of the opcodes
+                match instruction[0] {
+                    "ADD" => {
+                        //handle each opcode individually
+                    }
+                    _ => {
+                        //handles symbolic name
+                    }
+                }
+            }
+
+            /*
+            println!("{} {:?}", origin + offset_from_origin, instruction);
+            offset_from_origin += 1;
+            */
         }
     }
     while reader.read_line(&mut line)? != 0 {
