@@ -4,6 +4,9 @@
  * Step 4: Pass 2 calculates offsets then converts to binary
  */
 
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
 mod util;
 
 use rustc_hash::FxHashMap;
@@ -13,6 +16,11 @@ use std::io::{self, BufRead, BufReader, Write};
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+
+static OPCODES: &[&str] = &[
+    "ADD", "AND", "NOT", "BR", "JMP", "JSR", "JSRR", "RET", "LD", "LDI", "LDR", "LEA", "ST", "STI",
+    "STR", "TRAP", "RTI",
+];
 
 #[derive(Parser)]
 struct Cli {
@@ -93,34 +101,47 @@ fn main() -> Result<()> {
                 .split(';')
                 .next()
                 .unwrap()
-                .split_whitespace()
+                .split(|c: char| c.is_whitespace() || c == ',')
+                .filter(|s| !s.is_empty())
                 .collect();
-            if instruction.len() == 1 {
-                symbol_table.insert(instruction[0].to_string(), origin + offset_from_origin + 1);
-            } else {
-                // match all of the opcodes
-                match instruction[0] {
-                    "ADD" => {
-                        //handle each opcode individually
-                    }
-                    "AND" => {}
-                    "NOT" => {}
-                    "BR" => {}
-                    "JMP" => {}
-                    "JSR" => {}
-                    "JSRR" => {}
-                    "RET" => {}
-                    "LD" => {}
-                    "LDI" => {}
-                    "LDR" => {}
-                    "LEA" => {}
-                    "ST" => {}
-                    "STI" => {}
-                    "STR" => {}
-                    "TRAP" => {}
-                    "RTI" => {}
-                    _ => {
-                        //handles symbolic name
+
+            let (opcode_original_case, arguments) =
+                instruction.split_first().context("Empty Line Somehow!")?;
+
+            let opcode = opcode_original_case.to_uppercase();
+            // match all of the opcodes
+            match (opcode.as_str(), arguments) {
+                ("ADD" | "AND", [dr, sr1, sr2_or_immediate]) => {
+
+                    //handle each opcode individually
+                    // use .get.ok_or() and return custom error
+                }
+                ("NOT", [dr, sr]) => {}
+                ("BR", [pc_offset_9]) => {} // should match BR, BRn, BRnz, BRnzp, etc.
+                ("JMP" | "JSRR", [base_r]) => {}
+                ("JSR", [pc_offset_11]) => {}
+                ("RET" | "RTI", []) => {} // this is just JMP R7
+                ("LD", [dr, pc_offset_9]) => {}
+                ("LDI", [dr, pc_offset_9]) => {}
+                ("LDR", [dr, br, offset_6]) => {}
+                ("LEA", [dr, pc_offset_9]) => {}
+                ("ST", [sr, pc_offset_9]) => {}
+                ("STI", [sr, pc_offset_9]) => {}
+                ("STR", [sr, br, offset_6]) => {}
+                ("TRAP", [trap_vec_8]) => {}
+
+                (op, _) if OPCODES.contains(&op) || is_branch(op) => {
+                    bail!("{op}: wrong number of operands (got {})", arguments.len());
+                }
+
+                // Anything else is a label, possibly followed by an instruction
+                (_, rest) => {
+                    symbol_table.insert(
+                        opcode_original_case.to_string(),
+                        origin + offset_from_origin,
+                    );
+                    if !rest.is_empty() {
+                        // e.g. "LOOP ADD R1, R1, #-1": run `rest` through this same match
                     }
                 }
             }
@@ -137,4 +158,8 @@ fn main() -> Result<()> {
 
     output_file.flush()?;
     Ok(())
+}
+
+fn is_branch(opcode: &str) -> bool {
+    true
 }
